@@ -210,3 +210,7 @@ logging:
   level:
     org.springframework.cloud.gateway: DEBUG
     com.fluxbank: INFO
+
+gateway:
+  jwt:
+    public-key-path: classpath:keys/public_key.pem

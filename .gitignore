@@ -30,6 +30,13 @@ nbproject/
 secrets/
 **/*secret*
 
+# ── RSA / TLS private keys — never commit private keys ────────────────────────
+# Public keys are safe to commit (shared with gateway for JWT verification).
+# Private keys must be injected via Vault / env in production.
+**/keys/private_key.pem
+**/*private*.pem
+**/*private*.key
+
 # ── Logs ─────────────────────────────────────────────────────────────────────
 *.log
 logs/
