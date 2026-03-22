@@ -26,4 +26,10 @@ public final class KafkaTopics {
 
     // ── Notification service ──────────────────────────────────────────────────
     public static final String NOTIFICATION_EVENTS = "fluxbank.notification.events";
+
+    // ── Card service ──────────────────────────────────────────────────────────
+    public static final String CARD_EVENTS = "fluxbank.card.events";
+
+    // ── KYC service ───────────────────────────────────────────────────────────
+    public static final String KYC_EVENTS = "fluxbank.kyc.events";
 }
