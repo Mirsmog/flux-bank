@@ -65,6 +65,16 @@ public class AccountController {
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * Internal lookup endpoint — no ownership check.
+     * Used by transaction-service to validate a recipient account in transfers.
+     */
+    @GetMapping("/{id}/lookup")
+    public ResponseEntity<ApiResponse<AccountDto>> lookupAccount(@PathVariable UUID id) {
+        AccountDto dto = accountService.getAccountById(id);
+        return ResponseEntity.ok(ApiResponse.success(dto));
+    }
+
     private UUID currentUserId() {
         return UUID.fromString(
                 SecurityContextHolder.getContext().getAuthentication().getName());

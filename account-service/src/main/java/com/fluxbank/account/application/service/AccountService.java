@@ -21,4 +21,11 @@ public interface AccountService {
     AccountDto updateStatus(UUID accountId, UUID userId, UpdateAccountStatusRequest request);
 
     void closeAccount(UUID accountId, UUID userId);
+
+    /**
+     * Look up an account by ID without ownership validation.
+     * Intended for internal service-to-service calls (e.g., transaction-service
+     * validating the recipient in a transfer).
+     */
+    AccountDto getAccountById(UUID accountId);
 }

@@ -155,4 +155,12 @@ public class AccountServiceImpl implements AccountService {
             log.error("Failed to publish event [{}]: {}", event.getEventType(), e.getMessage());
         }
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AccountDto getAccountById(UUID accountId) {
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new FluxBankException(ErrorCode.NOT_FOUND, "Account not found"));
+        return accountMapper.toDto(account);
+    }
 }
