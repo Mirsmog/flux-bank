@@ -1,0 +1,6 @@
+**/.git
+**/target
+**/*.md
+**/node_modules
+infrastructure/
+**/.github

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fluxbank-production
+  labels:
+    app.kubernetes.io/name: fluxbank
+    environment: production
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fluxbank-staging
+  labels:
+    app.kubernetes.io/name: fluxbank
+    environment: staging

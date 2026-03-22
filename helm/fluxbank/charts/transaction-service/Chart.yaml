@@ -1,0 +1,6 @@
+apiVersion: v2
+name: transaction-service
+description: FluxBank transaction-service microservice
+type: application
+version: 1.0.0
+appVersion: "1.0.0"

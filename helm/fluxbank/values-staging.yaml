@@ -1,0 +1,15 @@
+global:
+  environment: staging
+  imageTag: latest
+
+api-gateway:
+  replicaCount: 2
+
+auth-service:
+  replicaCount: 1
+
+account-service:
+  replicaCount: 1
+
+payment-service:
+  replicaCount: 1

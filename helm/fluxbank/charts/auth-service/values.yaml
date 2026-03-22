@@ -1,0 +1,44 @@
+replicaCount: 2
+
+image:
+  name: auth-service
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8081
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 8
+  targetCPUUtilizationPercentage: 70
+
+serviceAccount:
+  name: ""
+
+extraEnv:
+  - name: JWT_PRIVATE_KEY_PATH
+    value: "file:/app/keys/private_key.pem"
+  - name: JWT_PUBLIC_KEY_PATH
+    value: "file:/app/keys/public_key.pem"
+
+secretEnv: []
+
+extraVolumes:
+  - name: jwt-keys
+    secret:
+      secretName: fluxbank-jwt-keys
+
+extraVolumeMounts:
+  - name: jwt-keys
+    mountPath: /app/keys
+    readOnly: true

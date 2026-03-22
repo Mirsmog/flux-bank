@@ -1,0 +1,43 @@
+global:
+  imageRegistry: ghcr.io/fluxbank
+  imageTag: latest
+  environment: production
+  postgresql:
+    host: postgresql
+    port: 5432
+  kafka:
+    bootstrapServers: kafka:9092
+  redis:
+    host: redis
+    port: 6379
+
+# Per-service overrides (merged with subchart values)
+service-registry:
+  replicaCount: 2
+
+config-server:
+  replicaCount: 2
+
+api-gateway:
+  replicaCount: 3
+
+auth-service:
+  replicaCount: 2
+
+account-service:
+  replicaCount: 2
+
+transaction-service:
+  replicaCount: 2
+
+payment-service:
+  replicaCount: 2
+
+card-service:
+  replicaCount: 2
+
+kyc-service:
+  replicaCount: 1
+
+notification-service:
+  replicaCount: 1
