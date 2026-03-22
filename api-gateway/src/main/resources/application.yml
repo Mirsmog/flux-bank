@@ -19,8 +19,12 @@ spring:
         - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
         - AddResponseHeader=X-Powered-By, flux-bank
         - AddRequestHeader=X-Gateway-Source, flux-bank-gateway
-        # RequestRateLimiter (Redis-backed) will be enabled in Phase 6 once
-        # spring-data-redis-reactive and a KeyResolver bean are introduced.
+        - name: RequestRateLimiter
+          args:
+            redis-rate-limiter.replenishRate: 20
+            redis-rate-limiter.burstCapacity: 50
+            redis-rate-limiter.requestedTokens: 1
+            key-resolver: "#{@userKeyResolver}"
 
       # --------------------------------------------------------------------------
       # CORS — permissive for development; restrict in production via config-server
@@ -136,6 +140,17 @@ spring:
   main:
     web-application-type: reactive
 
+  redis:
+    host: localhost
+    port: 6379
+    password: fluxbank_redis
+    timeout: 2000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+
 eureka:
   client:
     service-url:
@@ -205,6 +220,15 @@ management:
       show-details: always
     gateway:
       enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: http://localhost:4318/v1/traces
+  metrics:
+    tags:
+      application: ${spring.application.name}
 
 logging:
   level:
