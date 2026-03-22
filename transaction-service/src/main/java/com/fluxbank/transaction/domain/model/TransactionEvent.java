@@ -3,6 +3,8 @@ package com.fluxbank.transaction.domain.model;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -40,11 +42,13 @@ public class TransactionEvent {
     private UUID correlationId;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "event_type", nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "event_type", nullable = false, columnDefinition = "transaction_event_type")
     private TransactionEventType eventType;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "status", nullable = false, columnDefinition = "transaction_status")
     private TransactionStatus status;
 
     /** Amount is always positive; the eventType conveys direction. */

@@ -39,7 +39,8 @@
         <!-- Library versions -->
         <lombok.version>1.18.34</lombok.version>
         <mapstruct.version>1.6.2</mapstruct.version>
-        <opentelemetry.version>1.42.1</opentelemetry.version>
+        <!-- opentelemetry version must match Spring Boot 3.3.5 managed opentelemetry-bom:1.41.0 -->
+        <opentelemetry.version>1.41.0</opentelemetry.version>
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
         <logstash-logback.version>7.4</logstash-logback.version>
     </properties>
@@ -64,7 +65,15 @@
                 <scope>import</scope>
             </dependency>
 
-            <!-- common-lib -->
+            <!-- OpenTelemetry BOM — forces ALL otel artifacts to 1.41.0,
+                 preventing partial upgrades from micrometer-tracing-bridge-otel -->
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-bom</artifactId>
+                <version>${opentelemetry.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             <dependency>
                 <groupId>com.fluxbank</groupId>
                 <artifactId>common-lib</artifactId>
@@ -107,7 +116,7 @@
                 <scope>provided</scope>
             </dependency>
 
-            <!-- OpenTelemetry SDK -->
+            <!-- OpenTelemetry SDK — pinned to match Spring Boot 3.3.5 opentelemetry-bom:1.41.0 -->
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-sdk</artifactId>
@@ -121,6 +130,53 @@
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-exporter-otlp</artifactId>
+                <version>${opentelemetry.version}</version>
+            </dependency>
+            <!-- Explicit overrides for OTel transitive artifacts — BOM imports don't override
+                 the spring-boot-dependencies BOM which manages these at 1.37.0 -->
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-exporter-otlp-common</artifactId>
+                <version>${opentelemetry.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-exporter-common</artifactId>
+                <version>${opentelemetry.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-exporter-sender-okhttp</artifactId>
+                <version>${opentelemetry.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-context</artifactId>
+                <version>${opentelemetry.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-sdk-common</artifactId>
+                <version>${opentelemetry.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-sdk-trace</artifactId>
+                <version>${opentelemetry.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-sdk-metrics</artifactId>
+                <version>${opentelemetry.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-sdk-logs</artifactId>
+                <version>${opentelemetry.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-sdk-extension-autoconfigure-spi</artifactId>
                 <version>${opentelemetry.version}</version>
             </dependency>
 
@@ -154,6 +210,14 @@
                     <groupId>org.springframework.boot</groupId>
                     <artifactId>spring-boot-maven-plugin</artifactId>
                     <version>${spring-boot.version}</version>
+                    <executions>
+                        <execution>
+                            <id>repackage</id>
+                            <goals>
+                                <goal>repackage</goal>
+                            </goals>
+                        </execution>
+                    </executions>
                     <configuration>
                         <excludes>
                             <exclude>
@@ -189,6 +253,7 @@
                         </annotationProcessorPaths>
                         <compilerArgs>
                             <arg>-Amapstruct.defaultComponentModel=spring</arg>
+                            <arg>-parameters</arg>
                         </compilerArgs>
                     </configuration>
                 </plugin>

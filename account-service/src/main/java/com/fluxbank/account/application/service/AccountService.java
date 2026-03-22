@@ -5,6 +5,7 @@ import com.fluxbank.account.application.dto.AccountSummaryDto;
 import com.fluxbank.account.application.dto.CreateAccountRequest;
 import com.fluxbank.account.application.dto.UpdateAccountStatusRequest;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -28,4 +29,11 @@ public interface AccountService {
      * validating the recipient in a transfer).
      */
     AccountDto getAccountById(UUID accountId);
+
+    /**
+     * Apply a balance delta to an account.
+     * Positive delta = credit (increase). Negative delta = debit (decrease).
+     * Called by transaction-service to keep account balances in sync after recording events.
+     */
+    AccountDto applyBalanceDelta(UUID accountId, BigDecimal delta);
 }

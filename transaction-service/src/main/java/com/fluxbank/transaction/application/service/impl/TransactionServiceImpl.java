@@ -13,6 +13,8 @@ import com.fluxbank.transaction.domain.repository.TransactionEventRepository;
 import com.fluxbank.transaction.infrastructure.client.AccountDetailsDto;
 import com.fluxbank.transaction.infrastructure.client.AccountServiceClient;
 import lombok.RequiredArgsConstructor;
+
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -83,6 +85,8 @@ public class TransactionServiceImpl implements TransactionService {
                 correlationId.toString(), accountId.toString(),
                 TransactionEventType.DEPOSIT.name(), request.amount(), request.currency()));
 
+        syncBalance(accountId, userId, request.amount());
+
         return transactionMapper.toDto(event);
     }
 
@@ -136,6 +140,8 @@ public class TransactionServiceImpl implements TransactionService {
         publishEvent(new TransactionRecordedEvent(
                 correlationId.toString(), accountId.toString(),
                 TransactionEventType.WITHDRAWAL.name(), request.amount(), request.currency()));
+
+        syncBalance(accountId, userId, request.amount().negate());
 
         return transactionMapper.toDto(event);
     }
@@ -230,6 +236,9 @@ public class TransactionServiceImpl implements TransactionService {
         publishEvent(new TransactionRecordedEvent(
                 correlationId.toString(), fromAccountId.toString(),
                 TransactionEventType.TRANSFER_DEBIT.name(), request.amount(), request.currency()));
+
+        syncBalance(fromAccountId, userId, request.amount().negate());
+        syncBalance(toAccountId, userId, request.amount());
 
         return transactionMapper.toDto(debitEvent);
     }
@@ -341,6 +350,15 @@ public class TransactionServiceImpl implements TransactionService {
         if (!requestCurrency.equalsIgnoreCase(accountCurrency)) {
             throw new FluxBankException(ErrorCode.VALIDATION_ERROR,
                     "Currency mismatch: request=" + requestCurrency + ", account=" + accountCurrency);
+        }
+    }
+
+    private void syncBalance(UUID accountId, UUID userId, BigDecimal delta) {
+        try {
+            accountServiceClient.applyBalanceDelta(
+                    accountId, userId.toString(), Map.of("delta", delta));
+        } catch (Exception e) {
+            log.error("Failed to sync balance for accountId={}: {}", accountId, e.getMessage());
         }
     }
 

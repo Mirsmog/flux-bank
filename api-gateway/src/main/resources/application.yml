@@ -4,13 +4,9 @@ server:
 spring:
   application:
     name: api-gateway
+  config:
+    import: optional:configserver:http://localhost:8888
   cloud:
-    config:
-      uri: http://localhost:8888/config
-      fail-fast: false
-      retry:
-        max-attempts: 6
-        initial-interval: 1000
     gateway:
       # --------------------------------------------------------------------------
       # Global default filters applied to every route

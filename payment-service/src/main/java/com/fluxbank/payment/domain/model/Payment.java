@@ -3,7 +3,9 @@ package com.fluxbank.payment.domain.model;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -41,11 +43,13 @@ public class Payment {
     private String currency;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "type", nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "type", nullable = false, columnDefinition = "payment_type")
     private PaymentType type;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "status", nullable = false, columnDefinition = "payment_status")
     @Builder.Default
     private PaymentStatus status = PaymentStatus.INITIATED;
 

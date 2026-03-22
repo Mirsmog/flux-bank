@@ -2,6 +2,8 @@ package com.fluxbank.transaction.domain.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -32,7 +34,8 @@ public class LedgerEntry {
     private UUID accountId;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "entry_type", nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "entry_type", nullable = false, columnDefinition = "ledger_entry_type")
     private LedgerEntryType entryType;
 
     /** Always positive; entryType conveys direction. */

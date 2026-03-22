@@ -41,10 +41,10 @@ public class RequestIdFilter implements GlobalFilter, Ordered {
                 .header(REQUEST_ID_HEADER, finalRequestId)
                 .build();
 
-        return chain.filter(exchange.mutate().request(mutatedRequest).build())
-                .then(Mono.fromRunnable(() ->
-                        exchange.getResponse().getHeaders()
-                                .add(REQUEST_ID_HEADER, finalRequestId)));
+        // Add response header before chain.filter so it is written before headers are committed
+        exchange.getResponse().getHeaders().add(REQUEST_ID_HEADER, finalRequestId);
+
+        return chain.filter(exchange.mutate().request(mutatedRequest).build());
     }
 
     @Override

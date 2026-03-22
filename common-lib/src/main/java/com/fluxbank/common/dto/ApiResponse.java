@@ -2,6 +2,7 @@ package com.fluxbank.common.dto;
 
 import lombok.Builder;
 import lombok.Value;
+import lombok.extern.jackson.Jacksonized;
 
 import java.time.Instant;
 
@@ -15,6 +16,7 @@ import java.time.Instant;
  */
 @Value
 @Builder
+@Jacksonized
 public class ApiResponse<T> {
 
     boolean success;

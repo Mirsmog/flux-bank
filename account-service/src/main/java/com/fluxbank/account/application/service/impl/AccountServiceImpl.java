@@ -24,6 +24,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -161,6 +162,25 @@ public class AccountServiceImpl implements AccountService {
     public AccountDto getAccountById(UUID accountId) {
         Account account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new FluxBankException(ErrorCode.NOT_FOUND, "Account not found"));
+        return accountMapper.toDto(account);
+    }
+
+    @Override
+    @Transactional
+    public AccountDto applyBalanceDelta(UUID accountId, BigDecimal delta) {
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new FluxBankException(ErrorCode.NOT_FOUND, "Account not found"));
+
+        Money current = account.getBalance();
+        Money newBalance = delta.compareTo(BigDecimal.ZERO) >= 0
+                ? current.add(Money.of(delta, current.getCurrency()))
+                : current.subtract(Money.of(delta.negate(), current.getCurrency()));
+
+        account.setBalance(newBalance);
+        account = accountRepository.save(account);
+
+        log.info("Balance delta applied: accountId={}, delta={}, newBalance={}",
+                accountId, delta, newBalance.getAmount());
         return accountMapper.toDto(account);
     }
 }

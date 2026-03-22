@@ -2,6 +2,7 @@ package com.fluxbank.account.infrastructure.web;
 
 import com.fluxbank.account.application.dto.AccountDto;
 import com.fluxbank.account.application.dto.AccountSummaryDto;
+import com.fluxbank.account.application.dto.ApplyBalanceDeltaRequest;
 import com.fluxbank.account.application.dto.CreateAccountRequest;
 import com.fluxbank.account.application.dto.UpdateAccountStatusRequest;
 import com.fluxbank.account.application.service.AccountService;
@@ -72,6 +73,18 @@ public class AccountController {
     @GetMapping("/{id}/lookup")
     public ResponseEntity<ApiResponse<AccountDto>> lookupAccount(@PathVariable UUID id) {
         AccountDto dto = accountService.getAccountById(id);
+        return ResponseEntity.ok(ApiResponse.success(dto));
+    }
+
+    /**
+     * Internal balance update endpoint — called by transaction-service to sync balances
+     * after recording a transaction event. Positive delta = credit; negative = debit.
+     */
+    @PutMapping("/{id}/balance")
+    public ResponseEntity<ApiResponse<AccountDto>> applyBalanceDelta(
+            @PathVariable UUID id,
+            @Valid @RequestBody ApplyBalanceDeltaRequest request) {
+        AccountDto dto = accountService.applyBalanceDelta(id, request.delta());
         return ResponseEntity.ok(ApiResponse.success(dto));
     }
 
