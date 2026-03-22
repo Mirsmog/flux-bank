@@ -1,0 +1,58 @@
+# ── Build output ──────────────────────────────────────────────────────────────
+target/
+**/target/
+
+# ── IDE files ────────────────────────────────────────────────────────────────
+.idea/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+*.eclipse
+nbproject/
+.vscode/
+
+# ── Maven wrapper ─────────────────────────────────────────────────────────────
+!.mvn/wrapper/maven-wrapper.jar
+!.mvn/wrapper/maven-wrapper.properties
+
+# ── Spring Boot fat jars ───────────────────────────────────────────────────────
+*.jar
+!.mvn/**
+
+# ── Environment / secrets ─────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.env
+secrets/
+**/*secret*
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+logs/
+**/logs/
+spring.log
+
+# ── Docker volumes / local data ───────────────────────────────────────────────
+docker/volumes/
+infrastructure/volumes/
+
+# ── macOS ─────────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ── Test reports ──────────────────────────────────────────────────────────────
+**/surefire-reports/
+**/failsafe-reports/
+
+# ── JVM crash logs ────────────────────────────────────────────────────────────
+hs_err_pid*
+replay_pid*

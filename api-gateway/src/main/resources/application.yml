@@ -1,0 +1,212 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    config:
+      uri: http://localhost:8888/config
+      fail-fast: false
+      retry:
+        max-attempts: 6
+        initial-interval: 1000
+    gateway:
+      # --------------------------------------------------------------------------
+      # Global default filters applied to every route
+      # --------------------------------------------------------------------------
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+        - AddResponseHeader=X-Powered-By, flux-bank
+        - AddRequestHeader=X-Gateway-Source, flux-bank-gateway
+        # RequestRateLimiter (Redis-backed) will be enabled in Phase 6 once
+        # spring-data-redis-reactive and a KeyResolver bean are introduced.
+
+      # --------------------------------------------------------------------------
+      # CORS — permissive for development; restrict in production via config-server
+      # --------------------------------------------------------------------------
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            exposedHeaders:
+              - Authorization
+              - X-Request-Id
+              - X-Trace-Id
+            allowCredentials: true
+            maxAge: 3600
+
+      # --------------------------------------------------------------------------
+      # Routes  (lb:// uses Eureka service IDs)
+      # --------------------------------------------------------------------------
+      routes:
+        # Auth service
+        - id: auth-service
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/v1/auth/**
+          filters:
+            - StripPrefix=0
+            - name: CircuitBreaker
+              args:
+                name: auth-service-cb
+                fallbackUri: forward:/fallback/auth-service
+
+        # Account service
+        - id: account-service
+          uri: lb://account-service
+          predicates:
+            - Path=/api/v1/accounts/**
+          filters:
+            - StripPrefix=0
+            - name: CircuitBreaker
+              args:
+                name: account-service-cb
+                fallbackUri: forward:/fallback/account-service
+
+        # Transaction service
+        - id: transaction-service
+          uri: lb://transaction-service
+          predicates:
+            - Path=/api/v1/transactions/**
+          filters:
+            - StripPrefix=0
+            - name: CircuitBreaker
+              args:
+                name: transaction-service-cb
+                fallbackUri: forward:/fallback/transaction-service
+
+        # Payment service
+        - id: payment-service
+          uri: lb://payment-service
+          predicates:
+            - Path=/api/v1/payments/**
+          filters:
+            - StripPrefix=0
+            - name: CircuitBreaker
+              args:
+                name: payment-service-cb
+                fallbackUri: forward:/fallback/payment-service
+
+        # Card service
+        - id: card-service
+          uri: lb://card-service
+          predicates:
+            - Path=/api/v1/cards/**
+          filters:
+            - StripPrefix=0
+            - name: CircuitBreaker
+              args:
+                name: card-service-cb
+                fallbackUri: forward:/fallback/card-service
+
+        # KYC service
+        - id: kyc-service
+          uri: lb://kyc-service
+          predicates:
+            - Path=/api/v1/kyc/**
+          filters:
+            - StripPrefix=0
+            - name: CircuitBreaker
+              args:
+                name: kyc-service-cb
+                fallbackUri: forward:/fallback/kyc-service
+
+        # Notification service
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/api/v1/notifications/**
+          filters:
+            - StripPrefix=0
+            - name: CircuitBreaker
+              args:
+                name: notification-service-cb
+                fallbackUri: forward:/fallback/notification-service
+
+  # Disable Spring MVC auto-config — gateway is reactive (WebFlux)
+  main:
+    web-application-type: reactive
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    fetch-registry: true
+    register-with-eureka: true
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
+# --------------------------------------------------------------------------
+# Resilience4j circuit-breaker defaults (one per downstream service)
+# --------------------------------------------------------------------------
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+    instances:
+      auth-service-cb:
+        baseConfig: default
+      account-service-cb:
+        baseConfig: default
+      transaction-service-cb:
+        baseConfig: default
+      payment-service-cb:
+        baseConfig: default
+      card-service-cb:
+        baseConfig: default
+      kyc-service-cb:
+        baseConfig: default
+      notification-service-cb:
+        baseConfig: default
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 5s
+    instances:
+      auth-service-cb:
+        baseConfig: default
+      account-service-cb:
+        baseConfig: default
+      transaction-service-cb:
+        baseConfig: default
+      payment-service-cb:
+        baseConfig: default
+      card-service-cb:
+        baseConfig: default
+      kyc-service-cb:
+        baseConfig: default
+      notification-service-cb:
+        baseConfig: default
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      enabled: true
+
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    com.fluxbank: INFO
