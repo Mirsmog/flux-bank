@@ -7,6 +7,13 @@ COPY pom.xml .
 COPY common-lib/ common-lib/
 COPY config-server/ config-server/
 
+
+# Stub missing reactor modules so Maven can resolve the root POM
+RUN for m in service-registry api-gateway auth-service account-service transaction-service payment-service card-service kyc-service notification-service; do \
+    mkdir -p "$m" && \
+    printf '<project><modelVersion>4.0.0</modelVersion><parent><groupId>com.fluxbank</groupId><artifactId>flux-bank</artifactId><version>0.0.1-SNAPSHOT</version></parent><artifactId>%s</artifactId></project>' "$m" > "$m/pom.xml"; \
+  done
+
 # Build only this module (dependencies already cached in .m2)
 RUN --mount=type=cache,target=/root/.m2 \
     mvn package -pl config-server -am -DskipTests -q
