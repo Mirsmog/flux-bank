@@ -1,200 +1,330 @@
-# flux-bank
+# FluxBank
 
-> A production-grade, cloud-native banking platform built with Java 21 and Spring Boot 3.3.
+[![CI/CD](https://github.com/Mirsmog/flux-bank/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/Mirsmog/flux-bank/actions/workflows/ci-cd.yml)
+![Java 21](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.5-6DB33F?logo=springboot&logoColor=white)
+![Kafka](https://img.shields.io/badge/Apache%20Kafka-3.7-231F20?logo=apachekafka)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-ready-326CE5?logo=kubernetes&logoColor=white)
+
+Banking backend built as a microservices system. RS256 JWT auth, CQRS + Event Sourcing, Saga + Outbox, full observability, Kubernetes deployment with Helm.
 
 ---
 
 ## Architecture
 
-```
-                           ┌───────────────────────────────────────────────┐
-                           │              flux-bank platform                │
-                           └───────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    Client["Client\nWeb / Mobile"]
 
-  Client (web / mobile)
-        │  HTTPS
-        ▼
-  ┌─────────────┐          ┌─────────────────┐     ┌──────────────────┐
-  │  api-gateway│◄────────►│ service-registry│     │  config-server   │
-  │  :8080      │  Eureka  │    (Eureka)      │     │  :8888  (native) │
-  └──────┬──────┘          │    :8761        │     └──────────────────┘
-         │  lb://          └─────────────────┘
-         │
-  ┌──────┼────────────────────────────────────────────────────────────┐
-  │      │           Downstream microservices (Phase 1+)              │
-  │  ┌───▼──────┐  ┌──────────────┐  ┌────────────────┐              │
-  │  │auth-svc  │  │account-svc   │  │transaction-svc │  ...         │
-  │  │:8081     │  │:8082         │  │:8083           │              │
-  │  └────┬─────┘  └──────┬───────┘  └───────┬────────┘              │
-  └───────┼───────────────┼─────────────────┼───────────────────────┘
-          │               │                 │
-          └───────────────┴────────┬────────┘
-                                   │  Kafka (events)
-                            ┌──────▼──────────────┐
-                            │ Apache Kafka :9092   │
-                            │ Kafka UI     :8090   │
-                            └─────────────────────┘
-                                   │
-          ┌────────────────────────┴────────────────────────┐
-          │ Databases (PostgreSQL 16 — one per service)      │
-          │  auth_db :5433  accounts_db :5434  …            │
-          └─────────────────────────────────────────────────┘
-                                   │
-                            ┌──────▼──────┐
-                            │ Redis :6379 │
-                            │ (cache /    │
-                            │  rate limit)│
-                            └─────────────┘
+    subgraph gw["API Layer"]
+        GW["api-gateway :8080\nJWT validation · Rate limiting\nCircuit breaker · Routing"]
+    end
+
+    subgraph platform["Platform Services"]
+        SR["service-registry :8761\nEureka"]
+        CFG["config-server :8888\nSpring Cloud Config"]
+    end
+
+    subgraph svc["Microservices"]
+        AUTH["auth-service :8081\nRS256 JWT · Refresh tokens"]
+        ACC["account-service :8082\nAccounts · Balance sync"]
+        TXN["transaction-service :8083\nCQRS · Event Sourcing\nDouble-entry ledger"]
+        PAY["payment-service :8084\nSaga · Outbox · Idempotency"]
+        CARD["card-service :8085\nCard lifecycle"]
+        KYC["kyc-service :8086\nKYC workflow"]
+        NOTIF["notification-service :8087\nKafka consumer · Email"]
+    end
+
+    subgraph infra["Data & Messaging"]
+        PG[("PostgreSQL 16\n7 isolated databases")]
+        KAFKA[("Apache Kafka :9092\n7 topics · 3 partitions each")]
+        REDIS[("Redis :6379\nRate limit · Cache")]
+    end
+
+    subgraph obs["Observability"]
+        PROM["Prometheus :9090"]
+        GRAF["Grafana :3000"]
+        JAEGER["Jaeger :16686"]
+        LOKI["Loki :3100"]
+    end
+
+    Client -->|HTTPS| GW
+    GW <-->|Eureka lb://| SR
+    GW --> AUTH & ACC & TXN & PAY & CARD & KYC & NOTIF
+    GW <--> REDIS
+    svc <--> SR
+    svc --> CFG
+    svc --> PG
+    AUTH & PAY & TXN & ACC --> KAFKA
+    KAFKA --> NOTIF
+    svc -->|OTLP| JAEGER
+    svc -->|metrics| PROM
+    svc -->|logs| LOKI
+    PROM --> GRAF
+    LOKI --> GRAF
 ```
+
+---
+
+## Services
+
+| Service | Port | Responsibility | Key Patterns |
+|---|---|---|---|
+| api-gateway | 8080 | Single ingress — JWT validation, routing, rate limiting | Resilience4j, Redis token bucket |
+| service-registry | 8761 | Service discovery | Netflix Eureka |
+| config-server | 8888 | Centralized configuration | Spring Cloud Config native |
+| auth-service | 8081 | Authentication, token issuance | RS256 JWT, refresh tokens, Kafka events |
+| account-service | 8082 | Account lifecycle, balance management | Feign, optimistic delta updates |
+| transaction-service | 8083 | Immutable ledger, transaction history | CQRS, Event Sourcing, double-entry |
+| payment-service | 8084 | Payment orchestration | Saga, Transactional Outbox, idempotency |
+| card-service | 8085 | Card issuance and status | JPA state machine |
+| kyc-service | 8086 | KYC onboarding and verification | Kafka events |
+| notification-service | 8087 | Event-driven email notifications | Kafka consumer |
 
 ---
 
 ## Tech Stack
 
-| Layer            | Technology                        | Version   |
-|------------------|-----------------------------------|-----------|
-| Language         | Java                              | 21        |
-| Framework        | Spring Boot                       | 3.3.5     |
-| Service Mesh     | Spring Cloud                      | 2023.0.3  |
-| API Gateway      | Spring Cloud Gateway (WebFlux)    | 4.1.x     |
-| Service Registry | Netflix Eureka                    | 4.1.x     |
-| Config           | Spring Cloud Config (native)      | 4.1.x     |
-| Circuit Breaker  | Resilience4j                      | 2.2.x     |
-| Messaging        | Apache Kafka                      | 3.7.x     |
-| Cache            | Redis                             | 7.2       |
-| Database         | PostgreSQL                        | 16        |
-| Build            | Maven                             | 3.9.x     |
-| Observability    | Micrometer + OpenTelemetry        | 1.42.x    |
-| Containerisation | Docker / Docker Compose           | v3.9      |
+| | |
+|---|---|
+| **Runtime** | Java 21, Spring Boot 3.3.5, Spring Cloud 2023.0.3 |
+| **Gateway** | Spring Cloud Gateway (WebFlux), Resilience4j |
+| **Messaging** | Apache Kafka 3.7, Spring Kafka |
+| **Databases** | PostgreSQL 16 (per-service), Flyway migrations, HikariCP |
+| **Cache** | Redis 7.2 |
+| **Security** | Spring Security, JJWT 0.12.6, RSA-2048 / RS256 |
+| **Observability** | Micrometer, OpenTelemetry 1.41, Prometheus, Grafana, Jaeger, Loki |
+| **Build** | Maven 3.9, multi-module, Docker multi-stage (Alpine) |
+| **Deploy** | Kubernetes, Helm 3.12, GitHub Actions, GHCR |
 
 ---
 
-## Repository Layout
+## Design Patterns
+
+<details>
+<summary><strong>CQRS + Event Sourcing</strong> — transaction-service</summary>
+
+Transactions are stored as immutable events. The ledger is never updated — only appended to.
 
 ```
-flux-bank/
-├── common-lib/                # Shared DTOs, exceptions, events, Kafka constants
-├── service-registry/          # Eureka discovery server
-├── config-server/             # Spring Cloud Config Server (native profile)
-│   └── src/main/resources/
-│       └── config/            # Per-service YAML config files
-├── api-gateway/               # Spring Cloud Gateway + Resilience4j
-├── infrastructure/
-│   └── docker-compose.yml     # Full local dev stack
-└── pom.xml                    # Root multi-module POM
+DEPOSIT / WITHDRAWAL / TRANSFER_DEBIT / TRANSFER_CREDIT / FEE / REVERSAL
+     │
+     ▼
+transaction_events (append-only)
+     │
+     ▼
+ledger_entries (double-entry projections)
 ```
 
+- `balance_after` snapshot on each event avoids full replay for balance queries
+- Correlation ID links both legs of a P2P transfer
+
+</details>
+
+<details>
+<summary><strong>Saga + Transactional Outbox</strong> — payment-service</summary>
+
+```
+INITIATED → VALIDATING → DEBITED → CREDITED → COMPLETED
+                │                                  ▲
+                └──────────── FAILED ──────────────┘
+                                 │
+                    COMPENSATION_PENDING → COMPENSATED
+```
+
+The Outbox pattern guarantees event delivery even if Kafka is temporarily down:
+
+1. Payment record + outbox event written in a single DB transaction
+2. `OutboxPublisher` polls every 5 s for unpublished events
+3. On successful Kafka send → marks event `published = true`
+
+</details>
+
+<details>
+<summary><strong>Idempotency</strong> — payment-service</summary>
+
+`X-Idempotency-Key` header required on all payment requests. A `UNIQUE` constraint on the `idempotency_key` column at the DB level prevents duplicate processing. Safe to retry without side effects.
+
+</details>
+
+<details>
+<summary><strong>Rate Limiting</strong> — api-gateway</summary>
+
+Redis-backed token bucket (Spring Cloud Gateway `RequestRateLimiter`):
+
+- **20 tokens/s** replenish rate, **50-token** burst capacity
+- Key: `user:<userId>` for authenticated requests, `ip:<client-ip>` as fallback
+
+</details>
+
 ---
 
-## Services & Ports
+## Quick Start
 
-| Service              | Port  | Description                            |
-|----------------------|-------|----------------------------------------|
-| api-gateway          | 8080  | Single ingress — routes all traffic    |
-| service-registry     | 8761  | Eureka dashboard + REST API            |
-| config-server        | 8888  | Centralised configuration              |
-| auth-service         | 8081  | _(Phase 1)_ JWT authentication         |
-| account-service      | 8082  | _(Phase 1)_ Account management         |
-| transaction-service  | 8083  | _(Phase 1)_ Ledger transactions        |
-| payment-service      | 8084  | _(Phase 1)_ Payment processing         |
-| card-service         | 8085  | _(Phase 1)_ Card management            |
-| kyc-service          | 8086  | _(Phase 1)_ KYC / onboarding           |
-| notification-service | 8087  | _(Phase 1)_ Push / email notifications |
-| Kafka                | 9092  | Event streaming                        |
-| Kafka UI             | 8090  | Kafka web UI (Provectus)               |
-| Redis                | 6379  | Cache / rate limiter                   |
-| postgres-auth        | 5433  | PostgreSQL — auth_db                   |
-| postgres-accounts    | 5434  | PostgreSQL — accounts_db               |
-| postgres-transactions| 5435  | PostgreSQL — transactions_db           |
-| postgres-payments    | 5436  | PostgreSQL — payments_db               |
-| postgres-cards       | 5437  | PostgreSQL — cards_db                  |
-| postgres-kyc         | 5438  | PostgreSQL — kyc_db                    |
-| postgres-notifications| 5439 | PostgreSQL — notifications_db          |
+**Prerequisites:** Java 21+, Maven 3.9+, Docker Compose v2
 
----
-
-## Getting Started
-
-### Prerequisites
-
-- Java 21+
-- Maven 3.9+
-- Docker 24+ with Docker Compose v2
-
-### 1 — Start the infrastructure
+### 1. Start infrastructure
 
 ```bash
 cd infrastructure
 docker compose up -d
+# wait ~30s for health checks
+docker compose ps
 ```
 
-Wait ~30 s for all health checks to pass:
+### 2. Build
 
 ```bash
-docker compose ps   # all services should show "healthy"
-```
-
-### 2 — Build the project
-
-```bash
-# From the repository root
 mvn clean install -DskipTests
 ```
 
-### 3 — Start services in order
+### 3. Run services (start in this order)
 
 ```bash
-# Terminal 1 — Service Registry (must start first)
-cd service-registry
-mvn spring-boot:run
+# 1 — service-registry
+cd service-registry && mvn spring-boot:run
 
-# Terminal 2 — Config Server
-cd config-server
-mvn spring-boot:run
+# 2 — config-server
+cd config-server && mvn spring-boot:run
 
-# Terminal 3 — API Gateway
-cd api-gateway
-mvn spring-boot:run
+# 3 — api-gateway + any microservice
+cd api-gateway && mvn spring-boot:run
+cd auth-service && mvn spring-boot:run
 ```
 
-### 4 — Verify
+### 4. Verify
 
-| URL                                | Description               |
-|------------------------------------|---------------------------|
-| http://localhost:8761              | Eureka dashboard          |
-| http://localhost:8888/actuator     | Config server actuator    |
-| http://localhost:8080/actuator     | Gateway actuator          |
-| http://localhost:8090              | Kafka UI                  |
+| URL | |
+|---|---|
+| http://localhost:8761 | Eureka dashboard |
+| http://localhost:8888/actuator/health | Config server health |
+| http://localhost:8080/actuator/health | Gateway health |
+| http://localhost:8090 | Kafka UI |
 
 ---
 
-## Actuator Endpoints
+## Observability
 
-All services expose `/actuator/*` with full detail:
+| Tool | URL | What's there |
+|---|---|---|
+| Grafana | http://localhost:3000 | JVM metrics, HTTP rates, Kafka lag |
+| Jaeger | http://localhost:16686 | Distributed traces across all services |
+| Prometheus | http://localhost:9090 | Raw metrics scrape |
+| Loki (via Grafana) | http://localhost:3000 | Structured JSON logs |
+
+All services export traces via OTLP (gRPC `:4317` / HTTP `:4318`) and metrics at `/actuator/prometheus`.
+
+---
+
+## Deployment
+
+### Kubernetes + Helm
 
 ```bash
-curl http://localhost:8080/actuator/health | jq
-curl http://localhost:8761/actuator/health | jq
-curl http://localhost:8888/actuator/health | jq
+# Staging
+helm upgrade --install fluxbank ./helm/fluxbank \
+  -f ./helm/fluxbank/values-staging.yaml \
+  -n fluxbank-staging --create-namespace \
+  --set image.tag=sha-<commit>
+
+# Production
+helm upgrade --install fluxbank ./helm/fluxbank \
+  -f ./helm/fluxbank/values-production.yaml \
+  -n fluxbank-production --create-namespace \
+  --set image.tag=sha-<commit>
 ```
+
+**Required secrets before deploy:**
+
+```bash
+kubectl create secret generic fluxbank-jwt-keys \
+  --from-file=private_key.pem \
+  --from-file=public_key.pem \
+  -n fluxbank-staging
+
+kubectl create secret generic fluxbank-db-credentials \
+  --from-literal=password=<db-password> \
+  -n fluxbank-staging
+```
+
+**Production HPA targets:**
+
+| Service | Min | Max | CPU |
+|---|---|---|---|
+| api-gateway | 3 | 10 | 70% |
+| auth-service | 2 | 6 | 70% |
+| account-service | 3 | 8 | 70% |
+| payment-service | 2 | 6 | 70% |
+
+---
+
+## CI/CD
+
+GitHub Actions pipeline (`.github/workflows/ci-cd.yml`):
+
+```
+push to main / develop
+       │
+       ▼
+ ┌─────────────────────────────────┐
+ │  test (parallel, all services)  │  mvn test -pl <service> -am
+ └───────────────┬─────────────────┘
+                 │ on push only
+       ▼
+ ┌─────────────────────────────────┐
+ │  build & push (parallel)        │  Docker Buildx → GHCR
+ └───────────────┬─────────────────┘
+                 │ main only
+       ▼
+ ┌──────────────┐    ┌──────────────────┐
+ │   staging    │ →  │   production     │
+ │  (auto)      │    │  (after staging) │
+ └──────────────┘    └──────────────────┘
+```
+
+Images are tagged `latest` (main), `sha-<commit>`, and `<branch>`.
 
 ---
 
 ## Environment Variables
 
-Sensitive values are **not** committed. Create a `.env` file at the repository root (see `.gitignore`) and override defaults as needed.
+Defaults are safe for local development. Override via `.env` at repo root.
 
-| Variable                | Default          | Used by             |
-|-------------------------|------------------|---------------------|
-| `REDIS_PASSWORD`        | `fluxbank_redis` | Redis, gateway      |
-| `POSTGRES_PASSWORD`     | `fluxbank_pass`  | All Postgres nodes  |
-| `EUREKA_URL`            | `http://localhost:8761/eureka/` | All services |
-| `CONFIG_SERVER_URL`     | `http://localhost:8888/config` | All services |
+| Variable | Default | Used by |
+|---|---|---|
+| `POSTGRES_PASSWORD` | `fluxbank_pass` | All Postgres instances |
+| `REDIS_PASSWORD` | `fluxbank_redis` | Redis, api-gateway |
+| `EUREKA_URL` | `http://localhost:8761/eureka/` | All services |
+| `CONFIG_SERVER_URL` | `http://localhost:8888` | All services |
+
+---
+
+## Project Layout
+
+```
+flux-bank/
+├── common-lib/            # Shared DTOs, events, exceptions, Kafka constants
+├── config-server/         # Centralized config (src/main/resources/config/)
+├── service-registry/      # Eureka server
+├── api-gateway/           # Gateway, rate limiting, circuit breakers
+├── auth-service/          # JWT issuance, RS256 keys
+├── account-service/
+├── transaction-service/   # CQRS + Event Sourcing
+├── payment-service/       # Saga + Outbox + Idempotency
+├── card-service/
+├── kyc-service/
+├── notification-service/
+├── infrastructure/
+│   └── docker-compose.yml
+├── helm/fluxbank/         # Umbrella Helm chart + per-service subcharts
+├── k8s/                   # Raw Kubernetes manifests
+└── pom.xml                # Multi-module root POM
+```
 
 ---
 
 ## Contributing
 
-1. Branch from `main` — branch name: `feature/<ticket-id>-short-description`
-2. Run `mvn verify` before pushing
+1. Branch from `main` → `feature/<short-description>`
+2. `mvn verify` must pass locally
 3. Open a PR — CI must be green before merge
